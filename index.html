@@ -91,6 +91,7 @@
             display: flex;
             gap: 12px;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
         button {
             padding: 12px 24px;
@@ -208,6 +209,9 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
+        // CORS Proxy helper
+        const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+
         function TestStrategyGenerator() {
             // State: JIRA Configuration
             const [jiraConfig, setJiraConfig] = useState({
@@ -230,7 +234,6 @@
             const [loading, setLoading] = useState(false);
             const [status, setStatus] = useState(null);
             const [output, setOutput] = useState(null);
-            const [activeTab, setActiveTab] = useState('config');
 
             // Save config to localStorage when it changes
             useEffect(() => {
@@ -253,18 +256,26 @@
 
                 try {
                     const auth = btoa(`${jiraConfig.email}:${jiraConfig.token}`);
-                    const response = await fetch(
-                        `${jiraConfig.baseUrl}/rest/api/3/search?jql=project=KAN&maxResults=50`,
-                        {
-                            method: 'GET',
-                            headers: {
-                                'Authorization': `Basic ${auth}`,
-                                'Accept': 'application/json',
-                            },
-                        }
-                    );
+                    // Try direct fetch first (might work depending on JIRA CORS settings)
+                    const url = `${jiraConfig.baseUrl}/rest/api/3/search?jql=project&maxResults=50`;
+                    
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Basic ${auth}`,
+                            'Accept': 'application/json',
+                        },
+                    }).catch(() => {
+                        // If CORS fails, show helpful message
+                        throw new Error('CORS blocked: JIRA Cloud may not allow cross-origin requests from browsers. This is a security restriction by JIRA, not the app.');
+                    });
 
                     if (!response.ok) {
+                        if (response.status === 401) {
+                            throw new Error('401 Unauthorized: Invalid email or API token');
+                        } else if (response.status === 403) {
+                            throw new Error('403 Forbidden: Your account lacks permissions');
+                        }
                         throw new Error(`JIRA API error: ${response.status} ${response.statusText}`);
                     }
 
@@ -277,7 +288,7 @@
                     setIssues(fetchedIssues);
                     setStatus({ type: 'success', message: `✅ Fetched ${fetchedIssues.length} issues` });
                 } catch (error) {
-                    setStatus({ type: 'error', message: `❌ Failed to fetch issues: ${error.message}` });
+                    setStatus({ type: 'error', message: `❌ ${error.message}` });
                 }
 
                 setLoading(false);
@@ -296,7 +307,7 @@
                 }
 
                 if (!issueKey) {
-                    setStatus({ type: 'error', message: '❌ Please select a JIRA issue' });
+                    setStatus({ type: 'error', message: '❌ Please enter a JIRA issue key (e.g., KAN-1)' });
                     return;
                 }
 
@@ -318,6 +329,9 @@
                     );
 
                     if (!issueResponse.ok) {
+                        if (issueResponse.status === 404) {
+                            throw new Error(`Issue not found: ${issueKey}. Check your JIRA URL and issue key.`);
+                        }
                         throw new Error(`Failed to fetch issue: ${issueResponse.status}`);
                     }
 
@@ -325,7 +339,7 @@
                     const issueDetails = {
                         key: issueData.key,
                         summary: issueData.fields.summary,
-                        description: issueData.fields.description?.content?.[0]?.content?.[0]?.text || 'N/A',
+                        description: issueData.fields.description?.content?.[0]?.content?.[0]?.text || 'No description provided',
                     };
 
                     // Step 2: Call Groq API to generate test strategy
@@ -344,7 +358,7 @@
                         "outOfScope": "What will NOT be tested",
                         "testApproach": "How will we test",
                         "riskAssessment": "Key risks and mitigation",
-                        "testTypes": ["functional", "performance", "security", etc],
+                        "testTypes": ["functional", "performance", "security"],
                         "timeline": "Estimated timeline",
                         "resources": "Team and tools needed",
                         "deliverables": ["deliverable 1", "deliverable 2"]
@@ -368,6 +382,9 @@
                     });
 
                     if (!groqResponse.ok) {
+                        if (groqResponse.status === 401) {
+                            throw new Error('Groq 401: Invalid API key');
+                        }
                         throw new Error(`Groq API error: ${groqResponse.status}`);
                     }
 
@@ -443,7 +460,7 @@
 
                                 <div className="form-row">
                                     <div className="form-group">
-                                        <label>Base URL</label>
+                                        <label>Base URL (e.g., https://yourname.atlassian.net)</label>
                                         <input
                                             type="text"
                                             placeholder="https://your-jira.atlassian.net"
@@ -463,7 +480,7 @@
                                 </div>
 
                                 <div className="form-group">
-                                    <label>API Token</label>
+                                    <label>API Token (Get from https://id.atlassian.com/manage-profile/security/api-tokens)</label>
                                     <input
                                         type="password"
                                         placeholder="Paste your JIRA API token"
@@ -485,7 +502,7 @@
                                 </h3>
 
                                 <div className="form-group">
-                                    <label>Groq API Key</label>
+                                    <label>Groq API Key (Get from https://console.groq.com/keys)</label>
                                     <input
                                         type="password"
                                         placeholder="Paste your Groq API key"
@@ -497,7 +514,7 @@
                                 <div className="form-group">
                                     <label>Model</label>
                                     <select value={groqConfig.model} onChange={(e) => setGroqConfig({ ...groqConfig, model: e.target.value })}>
-                                        <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                                        <option value="mixtral-8x7b-32768">Mixtral 8x7B (Faster)</option>
                                         <option value="llama-2-70b-chat">Llama 2 70B</option>
                                     </select>
                                 </div>
@@ -510,28 +527,15 @@
                         <div className="section">
                             <div className="section-title">📋 Select JIRA Issue</div>
 
-                            {issues.length > 0 ? (
-                                <div className="form-group">
-                                    <label>Issue Key</label>
-                                    <select value={issueKey} onChange={(e) => setIssueKey(e.target.value)}>
-                                        {issues.map((issue) => (
-                                            <option key={issue.key} value={issue.key}>
-                                                {issue.key} - {issue.summary}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            ) : (
-                                <div className="form-group">
-                                    <label>Issue Key</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g., KAN-1"
-                                        value={issueKey}
-                                        onChange={(e) => setIssueKey(e.target.value)}
-                                    />
-                                </div>
-                            )}
+                            <div className="form-group">
+                                <label>Issue Key (e.g., KAN-1, PROJ-123)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g., KAN-1"
+                                    value={issueKey}
+                                    onChange={(e) => setIssueKey(e.target.value.toUpperCase())}
+                                />
+                            </div>
                         </div>
 
                         {/* Action Buttons */}
