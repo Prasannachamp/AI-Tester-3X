@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Test Strategy Generator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #555;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #059669;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-message {
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .status-error {
+            background: #fee;
+            color: #c33;
+            border-left: 4px solid #c33;
+        }
+        .status-success {
+            background: #efe;
+            color: #3c3;
+            border-left: 4px solid #3c3;
+        }
+        .status-info {
+            background: #eef;
+            color: #33c;
+            border-left: 4px solid #33c;
+        }
+        .output-section {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .output-section pre {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            font-family: 'Courier New', monospace;
+        }
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .button-group {
+                flex-direction: column;
+            }
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function TestStrategyGenerator() {
+            // State: JIRA Configuration
+            const [jiraConfig, setJiraConfig] = useState({
+                baseUrl: localStorage.getItem('jiraBaseUrl') || '',
+                email: localStorage.getItem('jiraEmail') || '',
+                token: localStorage.getItem('jiraToken') || '',
+            });
+
+            // State: Groq Configuration
+            const [groqConfig, setGroqConfig] = useState({
+                apiKey: localStorage.getItem('groqApiKey') || '',
+                model: 'mixtral-8x7b-32768',
+            });
+
+            // State: Issue Selection
+            const [issueKey, setIssueKey] = useState(localStorage.getItem('selectedIssue') || 'KAN-1');
+            const [issues, setIssues] = useState([]);
+
+            // State: UI
+            const [loading, setLoading] = useState(false);
+            const [status, setStatus] = useState(null);
+            const [output, setOutput] = useState(null);
+            const [activeTab, setActiveTab] = useState('config');
+
+            // Save config to localStorage when it changes
+            useEffect(() => {
+                localStorage.setItem('jiraBaseUrl', jiraConfig.baseUrl);
+                localStorage.setItem('jiraEmail', jiraConfig.email);
+                localStorage.setItem('jiraToken', jiraConfig.token);
+                localStorage.setItem('groqApiKey', groqConfig.apiKey);
+                localStorage.setItem('selectedIssue', issueKey);
+            }, [jiraConfig, groqConfig, issueKey]);
+
+            // Fetch JIRA issues
+            const fetchJiraIssues = async () => {
+                if (!jiraConfig.baseUrl || !jiraConfig.email || !jiraConfig.token) {
+                    setStatus({ type: 'error', message: '❌ Please fill in all JIRA configuration fields' });
+                    return;
+                }
+
+                setLoading(true);
+                setStatus({ type: 'info', message: '🔄 Fetching JIRA issues...' });
+
+                try {
+                    const auth = btoa(`${jiraConfig.email}:${jiraConfig.token}`);
+                    const response = await fetch(
+                        `${jiraConfig.baseUrl}/rest/api/3/search?jql=project=KAN&maxResults=50`,
+                        {
+                            method: 'GET',
+                            headers: {
+                                'Authorization': `Basic ${auth}`,
+                                'Accept': 'application/json',
+                            },
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(`JIRA API error: ${response.status} ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    const fetchedIssues = data.issues.map(issue => ({
+                        key: issue.key,
+                        summary: issue.fields.summary,
+                    }));
+
+                    setIssues(fetchedIssues);
+                    setStatus({ type: 'success', message: `✅ Fetched ${fetchedIssues.length} issues` });
+                } catch (error) {
+                    setStatus({ type: 'error', message: `❌ Failed to fetch issues: ${error.message}` });
+                }
+
+                setLoading(false);
+            };
+
+            // Generate test strategy using Groq
+            const generateStrategy = async () => {
+                if (!jiraConfig.baseUrl || !jiraConfig.email || !jiraConfig.token) {
+                    setStatus({ type: 'error', message: '❌ JIRA configuration missing' });
+                    return;
+                }
+
+                if (!groqConfig.apiKey) {
+                    setStatus({ type: 'error', message: '❌ Groq API key missing' });
+                    return;
+                }
+
+                if (!issueKey) {
+                    setStatus({ type: 'error', message: '❌ Please select a JIRA issue' });
+                    return;
+                }
+
+                setLoading(true);
+                setStatus({ type: 'info', message: '🤖 Generating test strategy...' });
+
+                try {
+                    // Step 1: Fetch JIRA issue details
+                    const auth = btoa(`${jiraConfig.email}:${jiraConfig.token}`);
+                    const issueResponse = await fetch(
+                        `${jiraConfig.baseUrl}/rest/api/3/issue/${issueKey}`,
+                        {
+                            method: 'GET',
+                            headers: {
+                                'Authorization': `Basic ${auth}`,
+                                'Accept': 'application/json',
+                            },
+                        }
+                    );
+
+                    if (!issueResponse.ok) {
+                        throw new Error(`Failed to fetch issue: ${issueResponse.status}`);
+                    }
+
+                    const issueData = await issueResponse.json();
+                    const issueDetails = {
+                        key: issueData.key,
+                        summary: issueData.fields.summary,
+                        description: issueData.fields.description?.content?.[0]?.content?.[0]?.text || 'N/A',
+                    };
+
+                    // Step 2: Call Groq API to generate test strategy
+                    const prompt = `
+                    You are an Expert QA Test Strategy Architect. Based on the following JIRA issue, generate a comprehensive test strategy document.
+
+                    JIRA Issue:
+                    - Key: ${issueDetails.key}
+                    - Title: ${issueDetails.summary}
+                    - Description: ${issueDetails.description}
+
+                    Generate a test strategy JSON with these sections:
+                    {
+                        "objective": "Main goal of testing this feature",
+                        "scope": "What will be tested",
+                        "outOfScope": "What will NOT be tested",
+                        "testApproach": "How will we test",
+                        "riskAssessment": "Key risks and mitigation",
+                        "testTypes": ["functional", "performance", "security", etc],
+                        "timeline": "Estimated timeline",
+                        "resources": "Team and tools needed",
+                        "deliverables": ["deliverable 1", "deliverable 2"]
+                    }
+
+                    Respond ONLY with valid JSON, no additional text.
+                    `;
+
+                    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${groqConfig.apiKey}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: groqConfig.model,
+                            messages: [{ role: 'user', content: prompt }],
+                            temperature: 0.7,
+                            max_tokens: 2000,
+                        }),
+                    });
+
+                    if (!groqResponse.ok) {
+                        throw new Error(`Groq API error: ${groqResponse.status}`);
+                    }
+
+                    const groqData = await groqResponse.json();
+                    const strategyText = groqData.choices[0].message.content;
+                    const strategy = JSON.parse(strategyText);
+
+                    const result = {
+                        issueKey: issueDetails.key,
+                        issueTitle: issueDetails.summary,
+                        generatedAt: new Date().toISOString(),
+                        testStrategy: strategy,
+                    };
+
+                    setOutput(result);
+                    setStatus({ type: 'success', message: '✅ Test strategy generated successfully!' });
+                } catch (error) {
+                    setStatus({ type: 'error', message: `❌ Error: ${error.message}` });
+                    setOutput(null);
+                }
+
+                setLoading(false);
+            };
+
+            // Export as JSON file
+            const exportAsJSON = () => {
+                if (!output) {
+                    setStatus({ type: 'error', message: '❌ No strategy to export' });
+                    return;
+                }
+
+                const jsonString = JSON.stringify(output, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `test-strategy-${output.issueKey}-${new Date().getTime()}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+
+                setStatus({ type: 'success', message: '✅ Strategy exported as JSON!' });
+            };
+
+            // Copy to clipboard
+            const copyToClipboard = () => {
+                if (!output) return;
+                navigator.clipboard.writeText(JSON.stringify(output, null, 2));
+                setStatus({ type: 'success', message: '✅ Copied to clipboard!' });
+            };
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>🚀 AI Test Strategy Generator</h1>
+                        <p>Powered by JIRA & Groq API | B.L.A.S.T. Framework</p>
+                    </div>
+
+                    <div className="content">
+                        {status && (
+                            <div className={`status-message status-${status.type}`}>
+                                {status.message}
+                            </div>
+                        )}
+
+                        {/* Configuration Tab */}
+                        <div className="section">
+                            <div className="section-title">⚙️ Configuration</div>
+
+                            <div className="subsection">
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', color: '#555' }}>
+                                    JIRA Configuration
+                                </h3>
+
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label>Base URL</label>
+                                        <input
+                                            type="text"
+                                            placeholder="https://your-jira.atlassian.net"
+                                            value={jiraConfig.baseUrl}
+                                            onChange={(e) => setJiraConfig({ ...jiraConfig, baseUrl: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Email</label>
+                                        <input
+                                            type="email"
+                                            placeholder="your-email@example.com"
+                                            value={jiraConfig.email}
+                                            onChange={(e) => setJiraConfig({ ...jiraConfig, email: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label>API Token</label>
+                                    <input
+                                        type="password"
+                                        placeholder="Paste your JIRA API token"
+                                        value={jiraConfig.token}
+                                        onChange={(e) => setJiraConfig({ ...jiraConfig, token: e.target.value })}
+                                    />
+                                </div>
+
+                                <button className="btn-secondary" onClick={fetchJiraIssues} disabled={loading}>
+                                    {loading ? <span className="loading"></span> : '🔍'} Fetch Issues
+                                </button>
+                            </div>
+
+                            <hr style={{ margin: '25px 0', border: 'none', borderTop: '1px solid #e0e0e0' }} />
+
+                            <div className="subsection">
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', color: '#555' }}>
+                                    Groq API Configuration
+                                </h3>
+
+                                <div className="form-group">
+                                    <label>Groq API Key</label>
+                                    <input
+                                        type="password"
+                                        placeholder="Paste your Groq API key"
+                                        value={groqConfig.apiKey}
+                                        onChange={(e) => setGroqConfig({ ...groqConfig, apiKey: e.target.value })}
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label>Model</label>
+                                    <select value={groqConfig.model} onChange={(e) => setGroqConfig({ ...groqConfig, model: e.target.value })}>
+                                        <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                                        <option value="llama-2-70b-chat">Llama 2 70B</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr style={{ margin: '30px 0', border: 'none', borderTop: '1px solid #e0e0e0' }} />
+
+                        {/* Issue Selection */}
+                        <div className="section">
+                            <div className="section-title">📋 Select JIRA Issue</div>
+
+                            {issues.length > 0 ? (
+                                <div className="form-group">
+                                    <label>Issue Key</label>
+                                    <select value={issueKey} onChange={(e) => setIssueKey(e.target.value)}>
+                                        {issues.map((issue) => (
+                                            <option key={issue.key} value={issue.key}>
+                                                {issue.key} - {issue.summary}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            ) : (
+                                <div className="form-group">
+                                    <label>Issue Key</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g., KAN-1"
+                                        value={issueKey}
+                                        onChange={(e) => setIssueKey(e.target.value)}
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="button-group">
+                            <button className="btn-primary" onClick={generateStrategy} disabled={loading}>
+                                {loading ? <span className="loading"></span> : '🤖'} Generate Strategy
+                            </button>
+                            {output && <button className="btn-success" onClick={exportAsJSON}>
+                                📥 Export as JSON
+                            </button>}
+                            {output && <button className="btn-secondary" onClick={copyToClipboard}>
+                                📋 Copy to Clipboard
+                            </button>}
+                        </div>
+
+                        <hr style={{ margin: '30px 0', border: 'none', borderTop: '1px solid #e0e0e0' }} />
+
+                        {/* Output */}
+                        <div className="section">
+                            <div className="section-title">📊 Generated Test Strategy</div>
+                            {output ? (
+                                <div className="output-section">
+                                    <pre>{JSON.stringify(output, null, 2)}</pre>
+                                </div>
+                            ) : (
+                                <div className="empty-state">
+                                    <div className="empty-state-icon">📄</div>
+                                    <p>Generate a test strategy to see results here</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<TestStrategyGenerator />);
+    </script>
+</body>
+</html>
